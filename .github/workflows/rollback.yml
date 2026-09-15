@@ -1,0 +1,57 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: Previous commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - run: |
+          ECR_URL=$(aws ecr describe-repositories --repository-names "lacrei-${{ inputs.environment }}" --query 'repositories[0].repositoryUri' --output text)
+          ECR_REGISTRY="${ECR_URL%/*}"
+          IMAGE="${ECR_URL}:${{ inputs.image_tag }}"
+          INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=tag:Project,Values=LacreiChallenge" "Name=tag:Environment,Values=${{ inputs.environment }}" "Name=instance-state-name,Values=running" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          PUBLIC_IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+          cat > /tmp/ssm.json <<JSON
+          {
+            "commands": [
+              "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}",
+              "docker pull ${IMAGE}",
+              "docker rm -f lacrei-app || true",
+              "docker run -d --name lacrei-app --restart unless-stopped -p 127.0.0.1:3000:3000 ${IMAGE}"
+            ]
+          }
+          JSON
+          COMMAND_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript --parameters file:///tmp/ssm.json --query 'Command.CommandId' --output text)
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
+          for i in {1..12}; do
+            if curl -skf "https://${PUBLIC_IP}/status"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
