@@ -17,9 +17,9 @@ provider "aws" {
 
 
 resource "aws_budgets_budget" "monthly" {
-  count       = var.budget_email != "" ? 1 : 0
-  name        = "lacrei-${var.environment}-budget"
-  budget_type = "COST"
+  count        = var.budget_email != "" ? 1 : 0
+  name         = "lacrei-${var.environment}-budget"
+  budget_type  = "COST"
   limit_amount = "20"
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
