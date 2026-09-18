@@ -280,3 +280,24 @@ Não foram adicionados banco de dados, NAT Gateway, Load Balancer ou outros comp
 ## Custo
 
 A arquitetura evita ALB, NAT Gateway, RDS e ECS. Os principais custos são EC2, IPv4 público, EBS, ECR e CloudWatch durante o período de avaliação.
+
+## Evidências e requisitos de entrega
+
+### Ambientes
+
+A solução utiliza dois ambientes:
+
+- `staging`: deploy a partir da branch `staging`
+- `production`: deploy a partir da branch `main`
+
+Cada ambiente utiliza um GitHub Environment separado, com secrets próprios.
+
+Links dos ambientes:
+
+- Staging: `https://<STAGING_PUBLIC_IP>/status`
+- Production: `https://<PRODUCTION_PUBLIC_IP>/status`
+
+Os IPs públicos são gerados pelo Terraform e podem ser consultados com:
+
+```bash
+terraform output -raw public_ip
