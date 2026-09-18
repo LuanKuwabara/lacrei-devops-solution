@@ -147,18 +147,22 @@ jobs:
           cat > /tmp/ssm.json <<EOF
           {
             "commands": [
-              "set -e",
-              "for i in \$(seq 1 30); do if command -v docker >/dev/null 2>&1 && systemctl is-active --quiet docker; then break; fi; echo waiting-for-docker; sleep 5; done",
-              "docker --version",
-              "systemctl is-active docker",
-              "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}",
-              "docker pull ${IMAGE}",
-              "docker rm -f lacrei-app || true",
-              "docker run -d --name lacrei-app --restart unless-stopped -p 127.0.0.1:3000:3000 ${IMAGE}",
-              "sleep 5",
-              "docker ps",
-              "curl -sf http://127.0.0.1:3000/status"
-            ]
+            "set -e",
+            "for i in \$(seq 1 30); do if command -v docker >/dev/null 2>&1 && systemctl is-active --quiet docker; then break; fi; echo waiting-for-docker; sleep 5; done",
+            "docker --version",
+            "systemctl is-active docker",
+            "unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE",
+            "rm -f /root/.aws/credentials /root/.aws/config || true",
+            "aws sts get-caller-identity",
+            "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}",
+            "docker pull ${IMAGE}",
+            "docker rm -f lacrei-app || true",
+            "docker run -d --name lacrei-app --restart unless-stopped -p 127.0.0.1:3000:3000 ${IMAGE}",
+            "sleep 5",
+            "docker ps",
+            "curl -sf http://127.0.0.1:3000/status"
+          ]
+                      
           }
           EOF
 
