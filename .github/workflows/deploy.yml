@@ -2,11 +2,6 @@ name: Deploy
 
 on:
   pull_request:
-<<<<<<< HEAD
-    branches: [main, staging]
-  push:
-    branches: [main, staging]
-=======
     branches:
       - main
       - staging
@@ -17,7 +12,6 @@ on:
       - staging
 
   workflow_dispatch:
->>>>>>> staging
 
 permissions:
   contents: read
@@ -25,14 +19,6 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-<<<<<<< HEAD
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - run: |
-          docker build -t lacrei-app .
-          docker run -d --name lacrei-test -p 3000:3000 lacrei-app
-=======
 
     steps:
       - name: Checkout
@@ -46,39 +32,11 @@ jobs:
           docker build -t lacrei-app .
           docker run -d --name lacrei-test -p 3000:3000 lacrei-app
 
->>>>>>> staging
           for i in {1..10}; do
             if curl -sf http://127.0.0.1:3000/status; then
               docker rm -f lacrei-test
               exit 0
             fi
-<<<<<<< HEAD
-            sleep 2
-          done
-          docker rm -f lacrei-test
-          exit 1
-      - working-directory: terraform/modules
-        run: terraform fmt -check -recursive
-      - working-directory: terraform/modules
-        run: terraform init -backend=false
-      - working-directory: terraform/modules
-        run: terraform validate
-
-  deploy:
-    if: github.event_name == 'push'
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-    env:
-      TF_VAR_environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-      TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
-      TF_VAR_budget_email: ${{ secrets.BUDGET_EMAIL }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - uses: aws-actions/configure-aws-credentials@v4
-=======
 
             sleep 2
           done
@@ -121,18 +79,10 @@ jobs:
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
->>>>>>> staging
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-<<<<<<< HEAD
-      - working-directory: terraform/modules
-        run: terraform init -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" -backend-config="key=lacrei/terraform.tfstate" -backend-config="region=${{ secrets.AWS_REGION }}"
-      - working-directory: terraform/modules
-        run: terraform apply -auto-approve
-      - id: terraform
-=======
 
       - name: Terraform Init
         working-directory: terraform/modules
@@ -148,51 +98,11 @@ jobs:
 
       - name: Terraform Outputs
         id: terraform
->>>>>>> staging
         working-directory: terraform/modules
         run: |
           echo "instance_id=$(terraform output -raw instance_id)" >> "$GITHUB_OUTPUT"
           echo "public_ip=$(terraform output -raw public_ip)" >> "$GITHUB_OUTPUT"
           echo "ecr_url=$(terraform output -raw ecr_repository_url)" >> "$GITHUB_OUTPUT"
-<<<<<<< HEAD
-      - uses: aws-actions/amazon-ecr-login@v2
-      - run: |
-          docker build -t "${{ steps.terraform.outputs.ecr_url }}:${GITHUB_SHA}" .
-          docker push "${{ steps.terraform.outputs.ecr_url }}:${GITHUB_SHA}"
-      - run: |
-          INSTANCE_ID="${{ steps.terraform.outputs.instance_id }}"
-          for i in {1..30}; do
-            STATUS=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$INSTANCE_ID" --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || true)
-            if [ "$STATUS" = "Online" ]; then
-              break
-            fi
-            sleep 10
-          done
-          ECR_URL="${{ steps.terraform.outputs.ecr_url }}"
-          ECR_REGISTRY="${ECR_URL%/*}"
-          IMAGE="${ECR_URL}:${GITHUB_SHA}"
-          cat > /tmp/ssm.json <<JSON
-          {
-            "commands": [
-              "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}",
-              "docker pull ${IMAGE}",
-              "docker rm -f lacrei-app || true",
-              "docker run -d --name lacrei-app --restart unless-stopped -p 127.0.0.1:3000:3000 ${IMAGE}"
-            ]
-          }
-          JSON
-          COMMAND_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript --parameters file:///tmp/ssm.json --query 'Command.CommandId' --output text)
-          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
-      - run: |
-          URL="https://${{ steps.terraform.outputs.public_ip }}/status"
-          for i in {1..12}; do
-            if curl -skf "$URL"; then
-              exit 0
-            fi
-            sleep 5
-          done
-          exit 1
-=======
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -309,4 +219,3 @@ jobs:
 
           echo "HTTPS endpoint did not respond successfully"
           exit 1
->>>>>>> staging
